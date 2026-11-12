@@ -72,7 +72,7 @@ class CharacteristicCallbacks :
 
   void onWrite(BLECharacteristic* characteristic) override {
 
-    std::string receivedValue = characteristic->getValue();
+    String receivedValue = characteristic->getValue();
 
     if (receivedValue == "ON") {
       pendingCommand = 1;
