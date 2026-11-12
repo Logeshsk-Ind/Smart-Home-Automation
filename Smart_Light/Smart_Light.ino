@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -6,239 +5,185 @@
 #include <BLE2902.h>
 #include <ESP32Servo.h>
 
-// =====================================
-// SMARTLIGHT - ESP32 BLE FIRMWARE
-// =====================================
+// ---------------- BLE CONFIGURATION ----------------
 
-// Hardware configuration
-#define SERVO_PIN 18
-#define STATUS_LED_PIN 2
-
-// Servo positions: calibrate for your switch
-#define ON_ANGLE 0
-#define OFF_ANGLE 90
-
-// Change to true if your blue LED is active LOW
-#define LED_ACTIVE_LOW false
-
-// BLE configuration
 #define DEVICE_NAME "ESP32_SMART_LIGHT"
 
 #define SERVICE_UUID \
-"6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 
 #define CHARACTERISTIC_UUID \
-"6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+  "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
-// =====================================
-// GLOBAL OBJECTS
-// =====================================
+// ---------------- HARDWARE CONFIGURATION ----------------
 
-Servo myServo;
+// GPIO numbers, not board D-labels
+#define SERVO_PIN 18
 
-BLEServer *pServer = nullptr;
-BLECharacteristic *pCharacteristic = nullptr;
+// GPIO2 is a common onboard LED pin on many ESP32 DevKit boards.
+// Confirm your particular board's LED pin and polarity.
+#define STATUS_LED_PIN 2
+#define LED_ACTIVE_LOW false
+
+#define ON_ANGLE 0
+#define OFF_ANGLE 90
+
+// ---------------- GLOBAL VARIABLES ----------------
+
+Servo smartServo;
+
+BLEServer* bleServer = nullptr;
+BLECharacteristic* commandCharacteristic = nullptr;
 
 volatile bool deviceConnected = false;
+volatile bool advertisingRestartNeeded = false;
 volatile uint8_t pendingCommand = 0;
 
-// =====================================
-// BLUE LED CONTROL
-// =====================================
+// ---------------- LED FUNCTION ----------------
 
-void setStatusLED(bool state) {
-
+void setStatusLED(bool connected) {
   if (LED_ACTIVE_LOW) {
-    digitalWrite(
-      STATUS_LED_PIN,
-      state ? LOW : HIGH
-    );
-  }
-  else {
-    digitalWrite(
-      STATUS_LED_PIN,
-      state ? HIGH : LOW
-    );
+    digitalWrite(STATUS_LED_PIN, connected ? LOW : HIGH);
+  } else {
+    digitalWrite(STATUS_LED_PIN, connected ? HIGH : LOW);
   }
 }
 
-// =====================================
-// BLE SERVER CALLBACKS
-// =====================================
+// ---------------- BLE SERVER CALLBACKS ----------------
 
 class ServerCallbacks : public BLEServerCallbacks {
 
-  void onConnect(BLEServer *server) override {
-
+  void onConnect(BLEServer* server) override {
     deviceConnected = true;
-
     Serial.println("Phone connected!");
   }
 
-  void onDisconnect(BLEServer *server) override {
-
+  void onDisconnect(BLEServer* server) override {
     deviceConnected = false;
-
-    pendingCommand = 0;
-
+    advertisingRestartNeeded = true;
     Serial.println("Phone disconnected!");
-
-    // Advertise again for the next connection
-    BLEDevice::startAdvertising();
   }
 };
 
-// =====================================
-// BLE COMMAND CALLBACKS
-// =====================================
+// ---------------- BLE CHARACTERISTIC CALLBACKS ----------------
 
-class CommandCallbacks :
+class CharacteristicCallbacks :
   public BLECharacteristicCallbacks {
 
-  void onWrite(
-    BLECharacteristic *characteristic
-  ) override {
+  void onWrite(BLECharacteristic* characteristic) override {
 
-    auto receivedValue =
-      characteristic->getValue();
+    std::string receivedValue = characteristic->getValue();
 
-    String command = receivedValue.c_str();
-
-    command.trim();
-    command.toUpperCase();
-
-    if (command == "ON") {
-
+    if (receivedValue == "ON") {
       pendingCommand = 1;
-
-      Serial.println("ON command received");
-
+      Serial.println("Received command: ON");
     }
 
-    else if (command == "OFF") {
-
+    else if (receivedValue == "OFF") {
       pendingCommand = 2;
-
-      Serial.println("OFF command received");
-
+      Serial.println("Received command: OFF");
     }
 
     else {
-
-      Serial.println("Invalid command received");
-
+      Serial.print("Unknown command: ");
+      Serial.println(receivedValue.c_str());
     }
   }
 };
 
-// =====================================
-// SETUP
-// =====================================
+// ---------------- SETUP ----------------
 
 void setup() {
 
   Serial.begin(115200);
+  delay(1000);
 
-  // Blue LED
+  Serial.println();
+  Serial.println("================================");
+  Serial.println("       SMARTLIGHT ESP32");
+  Serial.println("================================");
+
   pinMode(STATUS_LED_PIN, OUTPUT);
   setStatusLED(false);
 
-  // Servo
-  myServo.setPeriodHertz(50);
+  // Attach servo
+  smartServo.setPeriodHertz(50);
+  smartServo.attach(SERVO_PIN, 500, 2400);
 
-  myServo.attach(
-    SERVO_PIN,
-    500,
-    2400
-  );
+  smartServo.write(OFF_ANGLE);
 
-  myServo.write(OFF_ANGLE);
+  Serial.println("Servo initialized.");
 
-  // BLE initialization
+  // Initialize Bluetooth
   BLEDevice::init(DEVICE_NAME);
 
-  // Create BLE server
-  pServer = BLEDevice::createServer();
+  bleServer = BLEDevice::createServer();
+  bleServer->setCallbacks(new ServerCallbacks());
 
-  pServer->setCallbacks(
-    new ServerCallbacks()
-  );
+  BLEService* smartService =
+    bleServer->createService(SERVICE_UUID);
 
-  // Create BLE service
-  BLEService *pService =
-    pServer->createService(SERVICE_UUID);
-
-  // Create writable characteristic
-  pCharacteristic =
-    pService->createCharacteristic(
+  commandCharacteristic =
+    smartService->createCharacteristic(
       CHARACTERISTIC_UUID,
-      BLECharacteristic::PROPERTY_WRITE
+      BLECharacteristic::PROPERTY_WRITE |
+      BLECharacteristic::PROPERTY_WRITE_NR
     );
 
-  pCharacteristic->setCallbacks(
-    new CommandCallbacks()
+  commandCharacteristic->setCallbacks(
+    new CharacteristicCallbacks()
   );
 
-  // Start service
-  pService->start();
+  smartService->start();
 
-  // BLE advertising
-  BLEAdvertising *pAdvertising =
+  BLEAdvertising* advertising =
     BLEDevice::getAdvertising();
 
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
+  advertising->addServiceUUID(SERVICE_UUID);
+  advertising->setScanResponse(true);
 
   BLEDevice::startAdvertising();
 
-  Serial.println();
-  Serial.println("==============================");
-  Serial.println("   SMARTLIGHT SYSTEM READY");
-  Serial.println("==============================");
-
+  Serial.println("Bluetooth initialized.");
   Serial.print("Device name: ");
   Serial.println(DEVICE_NAME);
-
-  Serial.println("BLE advertising started");
-  Serial.println("Waiting for smartphone...");
+  Serial.println("Waiting for phone connection...");
 }
 
-// =====================================
-// MAIN LOOP
-// =====================================
+// ---------------- MAIN LOOP ----------------
 
 void loop() {
 
-  // Blue LED indicates BLE connection
   setStatusLED(deviceConnected);
+
+  // Restart advertising after phone disconnects
+  if (advertisingRestartNeeded) {
+    advertisingRestartNeeded = false;
+
+    delay(300);
+
+    BLEDevice::startAdvertising();
+
+    Serial.println("Advertising restarted.");
+  }
 
   // Process received commands
   uint8_t command = pendingCommand;
+  pendingCommand = 0;
 
-  if (command != 0) {
+  if (command == 1) {
 
-    pendingCommand = 0;
+    smartServo.write(ON_ANGLE);
 
-    if (command == 1) {
-
-      // LIGHT ON
-      myServo.write(ON_ANGLE);
-
-      Serial.println("LIGHT ON");
-      Serial.println("Servo: ON position");
-
-    }
-
-    else if (command == 2) {
-
-      // LIGHT OFF
-      myServo.write(OFF_ANGLE);
-
-      Serial.println("LIGHT OFF");
-      Serial.println("Servo: OFF position");
-
-    }
+    Serial.println("SmartLight ON position.");
   }
 
-  delay(10);
+  else if (command == 2) {
+
+    smartServo.write(OFF_ANGLE);
+
+    Serial.println("SmartLight OFF position.");
+  }
+
+  delay(20);
 }

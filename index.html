@@ -3,66 +3,138 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-  <title>SmartLight Control</title>
-  <link rel="icon" type="image/png" href="assets/smart-home-logo.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#5b1832">
+
+  <title>SmartLight | Smart Home Control</title>
+
   <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
 </head>
+
 <body>
+  <div class="background-glow glow-one"></div>
+  <div class="background-glow glow-two"></div>
 
-  <main class="app">
+  <main class="app-container">
 
-    <header>
-      <div>
-        <h1>My Home</h1>
-        <p>Smart home control</p>
+    <header class="topbar glass">
+      <div class="brand">
+        <img
+          src="assets/smart-home-logo.png"
+          alt="SmartLight logo"
+          class="brand-logo"
+        >
+        <div>
+          <h1>SmartLight</h1>
+          <p>Intelligent living, beautifully simple.</p>
+        </div>
       </div>
-      <img class="home-logo" src="assets/smart-home-logo.png" alt="Smart home logo">
+
+      <div class="connection-pill" id="connectionPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="connectionText">Disconnected</span>
+      </div>
     </header>
 
-    <section class="device-card">
-      <div class="device-heading">
-        <h2>Living Room</h2>
-        <span id="lightStatus" class="status off">
-          OFF
-        </span>
-      </div>
-
-      <div class="light-icon" id="lightIcon">💡</div>
-
-      <h2>Smart Light</h2>
-      <p id="message">Your light is switched OFF</p>
-
-      <div class="controls">
-        <button id="onBtn" class="on-btn">
-          TURN ON
-        </button>
-
-        <button id="offBtn" class="off-btn">
-          TURN OFF
-        </button>
-      </div>
+    <section class="welcome-section">
+      <p class="eyebrow">YOUR PERSONAL SMART HOME</p>
+      <h2>Control your space.<br><span>Feel at home.</span></h2>
+      <p class="welcome-description">
+        A little intelligence makes everyday living effortless.
+      </p>
     </section>
 
-    <section class="connection-card">
-      <h3>Device Connection</h3>
+    <section class="device-section glass">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">DEVICE MANAGEMENT</p>
+          <h2>Your devices</h2>
+        </div>
+        <span class="device-count">01 DEVICE</span>
+      </div>
 
-      <p id="connectionStatus">
-        ESP32: Disconnected
+      <article class="device-card">
+        <div class="device-icon">
+          <span>💡</span>
+        </div>
+
+        <div class="device-information">
+          <h3>Smart Light</h3>
+          <p id="deviceStatus">Waiting for connection</p>
+        </div>
+
+        <span class="device-indicator" id="deviceIndicator"></span>
+      </article>
+
+      <div class="bluetooth-area">
+        <div>
+          <h3>Bluetooth connection</h3>
+          <p>Connect your ESP32 controller.</p>
+        </div>
+
+        <button id="connectBtn" class="primary-button">
+          <span>Connect ESP32</span>
+        </button>
+      </div>
+
+      <p class="message" id="message" role="status" aria-live="polite">
+        Connect your ESP32 to get started.
       </p>
+    </section>
 
-      <button id="connectBtn" class="connect-btn">
-        Connect ESP32
-      </button>
+    <section class="control-section glass">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">SMART CONTROL</p>
+          <h2>Light control</h2>
+        </div>
+        <span class="live-label">LIVE CONTROL</span>
+      </div>
+
+      <div class="light-visual" id="lightVisual">
+        <div class="bulb">
+          <span>✦</span>
+        </div>
+        <p id="lightState">LIGHT OFF</p>
+      </div>
+
+      <div class="control-buttons">
+        <button id="onBtn" class="control-button on-button" disabled>
+          <span class="button-icon">☀</span>
+          <span>Turn ON</span>
+        </button>
+
+        <button id="offBtn" class="control-button off-button" disabled>
+          <span class="button-icon">◐</span>
+          <span>Turn OFF</span>
+        </button>
+      </div>
+
+      <p class="control-note">
+        Commands are sent wirelessly to your ESP32 using Bluetooth Low Energy.
+      </p>
+    </section>
+
+    <section class="info-grid">
+      <article class="info-card glass">
+        <span class="info-icon">⌁</span>
+        <p>Communication</p>
+        <h3>Bluetooth LE</h3>
+      </article>
+
+      <article class="info-card glass">
+        <span class="info-icon">⌘</span>
+        <p>Controller</p>
+        <h3>ESP32</h3>
+      </article>
     </section>
 
     <footer>
-      SMARTLIGHT CONTROL · VERSION 1.0
+      <p>SMARTLIGHT © 2026</p>
+      <p>Designed for intelligent living.</p>
     </footer>
 
   </main>
-
-  <script src="script.js"></script>
 </body>
 </html>
